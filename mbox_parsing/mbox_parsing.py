@@ -27,6 +27,7 @@ import multiprocessing
 import os.path
 import shutil
 import sys
+import re
 from os.path import abspath
 
 from codeface.cli import log
@@ -81,7 +82,7 @@ def __get_index(mbox, mbox_path, results_folder, schema, reindex):
 
 
 # get the search terms from the commits.list file
-def __get_artifacts(results_folder, files_as_artifacts):
+def __get_artifacts(results_folder, files_as_artifacts, file_name):
     """Get the list of artifacts from the list of commits ('commits.list' file)
 
     :param results_folder: the results folder with the file 'commits.list'
@@ -92,13 +93,13 @@ def __get_artifacts(results_folder, files_as_artifacts):
     commit_data_columns = [
         "commit.id",  # id
         "date", "author.name", "author.email",  # author information
-        "committer.date", "committer.name", "committer.email",  # committer information
+        #"committer.date", "committer.name", "committer.email",  # committer information
         "hash", "changed.files", "added.lines", "deleted.lines", "diff.size",  # commit information
         "file", "artifact", "artifact.type", "artifact.diff.size"  # commit-dependency information
     ]
 
     commit_set = set()
-    with open(os.path.join(results_folder, "commits.list"), 'r') as commit_file:
+    with open(os.path.join(results_folder, file_name), 'r') as commit_file:
         commit_list = csv.DictReader(commit_file, delimiter=';', fieldnames=commit_data_columns)
         for row in commit_list:
             if files_as_artifacts:
@@ -149,7 +150,7 @@ def __parse_execute(artifact, schema, my_index, include_filepath):
     :return: a match list of tuples (file name, artifact, message ID)
     """
 
-    log.devinfo("Searching for artifact ({}, {})...".format(artifact[0], artifact[1]))
+    #log.devinfo("Searching for artifact ({}, {})...".format(artifact[0], artifact[1]))
 
     result = []
 
@@ -161,20 +162,23 @@ def __parse_execute(artifact, schema, my_index, include_filepath):
         if include_filepath:
             my_query = query_parser.parse('"%s" AND "%s"' % (artifact[0], artifact[1]))
         else:
-            my_query = query_parser.parse("\"%s\"" % artifact[1])
+            # construct sub-component up to depth 3:
+            subcomponent = re.sub(r'^(([^/]*/){3}).*','\\1', re.sub(r'/+[^/]+$','/', artifact[0]))
+            subcomponent_without_trailing_slash = subcomponent[0:-1]
+            my_query = query_parser.parse("\"%s\"" % subcomponent_without_trailing_slash) #artifact[1])
 
         # search!
         query_result = searcher.search(my_query, terms=True, optimize=False)
 
         # construct result from query answer
         for r in query_result:
-            result_tuple = (artifact[0], artifact[1], r["messageID"])
+            result_tuple = (subcomponent, r["messageID"])
             result.append(result_tuple)
 
     return result
 
 
-def parse(mbox_name, results_folder, include_filepath, files_as_artifacts, reindex, append_result):
+def parse(mbox_name, results_folder, include_filepath, files_as_artifacts, reindex, append_result, commits):
     """Parse the given mbox file with the commit information from the results folder.
 
     :param mbox_name: the mbox file to search in
@@ -196,7 +200,7 @@ def parse(mbox_name, results_folder, include_filepath, files_as_artifacts, reind
     ix = __get_index(mbox, mbox_name, results_folder, schema, reindex)
 
     # extract artifacts from results folder
-    artifacts = __get_artifacts(results_folder, files_as_artifacts)
+    artifacts = __get_artifacts(results_folder, files_as_artifacts, commits) # commits.list
 
     # parallelize execution call for the text search
     log.info("Start parsing...")
@@ -208,10 +212,13 @@ def parse(mbox_name, results_folder, include_filepath, files_as_artifacts, reind
     # re-arrange results
     result = []
     if not append_result:
-        result.append(('file', 'artifact', 'messageID'))
+        #result.append(('file', 'artifact', 'messageID'))
+        result.append(('subcomponent', 'messageID'))
     for entry in csv_data:
         for row in entry:
             result.append(row)
+    result = list(set(result))
+    result.sort(key=lambda x: x[0])
 
     # determine ouput file
     filename = "mboxparsing"
@@ -242,25 +249,27 @@ def run():
     parser.add_argument('-r', '--reindex', help="Re-construct the index", action="store_true")
     parser.add_argument('resdir', help="Directory to store analysis results in")
     parser.add_argument('maildir', help='Directory in which the mailinglists are located')
+    parser.add_argument('commits', help='Commits list')
 
     # construct data paths
     args = parser.parse_args(sys.argv[1:])
     __resdir = abspath(args.resdir)
-    __maildir = abspath(args.maildir)
-    __codeface_conf, __project_conf = map(abspath, (args.config, args.project))
+    __maildir = args.maildir #abspath(args.maildir)
+    __commits = args.commits
+    #__codeface_conf, __project_conf = map(abspath, (args.config, args.project))
 
     # initialize configuration
-    __conf = Configuration.load(__codeface_conf, __project_conf)
-    __resdir_project = os.path.join(__resdir, __conf["project"], __conf["tagging"])
+    #__conf = Configuration.load(__codeface_conf, __project_conf)
+    __resdir_project = os.path.join(__resdir) #, __conf["project"], __conf["tagging"])
 
     # search the mailing lists
-    for ml in __conf["mailinglists"]:
-        mbox_file = os.path.join(__maildir, ml["name"] + ".mbox")
+    #for ml in __conf["mailinglists"]:
+    mbox_file = __maildir #os.path.join(__maildir, ml["name"] + ".mbox")
 
         # append results for all but the first mailing list
-        append_result = ml != __conf["mailinglists"][0]
+        #append_result = ml != __conf["mailinglists"][0]
 
-        parse(mbox_file, __resdir_project, args.filepath, args.file, args.reindex, append_result)
+    parse(mbox_file, __resdir_project, args.filepath, args.file, args.reindex, False, __commits) #append_result)
 
 
 if __name__ == "__main__":
