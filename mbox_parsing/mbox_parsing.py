@@ -165,7 +165,7 @@ def __parse_execute(artifact, schema, my_index, include_filepath):
             # construct sub-component up to depth 3:
             subcomponent = re.sub(r'^(([^/]*/){3}).*','\\1', re.sub(r'/+[^/]+$','/', artifact[0]))
             subcomponent_without_trailing_slash = subcomponent[0:-1]
-            my_query = query_parser.parse(r"%s.*" % subcomponent_without_trailing_slash) #artifact[1])
+            my_query = query_parser.parse(r"[.*/]?%s.*" % subcomponent_without_trailing_slash) #artifact[1])
             log.devinfo("Searching for ({})...".format(my_query))
 
         # search!
