@@ -165,13 +165,13 @@ def __parse_execute(artifact, schema, my_index, include_filepath):
             # construct sub-component up to depth 3:
             subcomponent = re.sub(r'^(([^/]*/){3}).*','\\1', re.sub(r'/+[^/]+$','/', artifact[0]))
             subcomponent_without_trailing_slash = subcomponent[0:-1]
-            regex = unicode('content:r"(.*/)*%s(.*)"') % subcomponent_without_trailing_slash
+            regex = unicode('content:r"([ab]?/)?%s([?.,:;!]|(/[\w\S]{0,}))?$"') % subcomponent_without_trailing_slash
             query_parser.add_plugin(RegexPlugin())
             my_query = query_parser.parse(regex) #artifact[1])
             log.devinfo("Searching for ({})...".format(my_query))
 
         # search!
-        query_result = searcher.search(my_query, terms=True, optimize=False)
+        query_result = searcher.search(my_query, terms=True, optimize=True)
 
         # construct result from query answer
         for r in query_result:
@@ -214,9 +214,9 @@ def parse(mbox_name, results_folder, include_filepath, files_as_artifacts, reind
 
     # re-arrange results
     result = []
-    if not append_result:
+    #if not append_result:
         #result.append(('file', 'artifact', 'messageID'))
-        result.append(('subcomponent', 'messageID'))
+        #result.append(('subcomponent', 'messageID'))
     for entry in csv_data:
         for row in entry:
             result.append(row)
