@@ -171,7 +171,7 @@ def __parse_execute(artifact, schema, my_index, include_filepath):
             log.devinfo("Searching for ({})...".format(my_query))
 
         # search!
-        query_result = searcher.search(my_query, terms=True, optimize=True)
+        query_result = searcher.search(my_query, terms=True, optimize=True, limit=None)
 
         # construct result from query answer
         for r in query_result:
