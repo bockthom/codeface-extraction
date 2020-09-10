@@ -93,7 +93,7 @@ def __get_artifacts(results_folder, files_as_artifacts, file_name):
     commit_data_columns = [
         "commit.id",  # id
         "date", "author.name", "author.email",  # author information
-        #"committer.date", "committer.name", "committer.email",  # committer information
+        "committer.date", "committer.name", "committer.email",  # committer information
         "hash", "changed.files", "added.lines", "deleted.lines", "diff.size",  # commit information
         "file", "artifact", "artifact.type", "artifact.diff.size"  # commit-dependency information
     ]
@@ -162,9 +162,7 @@ def __parse_execute(artifact, schema, my_index, include_filepath):
         if include_filepath:
             my_query = query_parser.parse('"%s" AND "%s"' % (artifact[0], artifact[1]))
         else:
-            # construct sub-component up to depth 3:
-            subcomponent = re.sub(r'^(([^/]*/){3}).*','\\1', re.sub(r'/+[^/]+$','/', artifact[0]))
-            subcomponent_without_trailing_slash = subcomponent[0:-1]
+            subcomponent_without_trailing_slash = artifact[0:-1] #subcomponent[0:-1]
             regex = unicode('content:r"^((\.|a|b|old|new|x\-0|x\-1|l1|l2|linus|linux|(linux\-[\w\-\.:~+]*)|([\w\-\.]*\.(patch\-old|patch\-new|orig)))?/)?%s([?.,:;!]|(/[\w\S\.\-/]{0,}))?$"') % subcomponent_without_trailing_slash
             query_parser.add_plugin(RegexPlugin())
             my_query = query_parser.parse(regex) #artifact[1])
@@ -175,7 +173,8 @@ def __parse_execute(artifact, schema, my_index, include_filepath):
 
         # construct result from query answer
         for r in query_result:
-            result_tuple = (subcomponent, r["messageID"])
+            result_tuple = (artifact, r["messageID"])
+            log.devinfo(result_tuple)
             result.append(result_tuple)
 
     return result
@@ -205,11 +204,17 @@ def parse(mbox_name, results_folder, include_filepath, files_as_artifacts, reind
     # extract artifacts from results folder
     artifacts = __get_artifacts(results_folder, files_as_artifacts, commits) # commits.list
 
+    subcomponents = set()
+    for artifact in artifacts:
+        # construct subcomponent up to depth 3:
+        subcomponent = re.sub(r'^(([^/]*/){3}).*','\\1', re.sub(r'/+[^/]+$','/', artifact[0]))
+        subcomponents.add(subcomponent)
+
     # parallelize execution call for the text search
     log.info("Start parsing...")
     num_cores = multiprocessing.cpu_count()
     csv_data = Parallel(n_jobs=num_cores - 1)(
-        delayed(__parse_execute)(commit, schema, ix, include_filepath) for commit in artifacts)
+        delayed(__parse_execute)(subcomponent, schema, ix, include_filepath) for subcomponent in subcomponents)
     log.info("Parsing finished.")
 
     # re-arrange results
