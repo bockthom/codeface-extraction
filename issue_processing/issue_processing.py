@@ -18,6 +18,7 @@
 # Copyright 2018-2019 by Anselm Fehnker <fehnker@fim.uni-passau.de>
 # Copyright 2019 by Thomas Bock <bockthom@fim.uni-passau.de>
 # Copyright 2020-2021 by Thomas Bock <bockthom@cs.uni-saarland.de>
+# Copyright 2026 by Thomas Bock <bockthom@cmu.edu>
 # Copyright 2025-2026 by Leo Sendelbach <s8lesend@stud.uni-saarland.de>
 # All Rights Reserved.
 """
@@ -900,11 +901,12 @@ def insert_user_data(issues, conf, resdir):
     lines = []
     for username in username_id_buffer:
         user = get_user_from_id(username_id_buffer[username])
-        lines.append((
-            username,
-            user["name"],
-            user["email"]
-        ))
+        if not username == "None":
+            lines.append((
+                username,
+                user["name"],
+                user["email"]
+            ))
 
     log.info("Dump username list to file...")
     username_dump = os.path.join(resdir, "usernames.list")
