@@ -32,6 +32,8 @@ from codeface_utils.util import setup_logging
 setup_logging()
 log = getLogger(__name__)
 
+# raise csv field size limit
+csv.field_size_limit(sys.maxsize)
 
 def run():
     parser = argparse.ArgumentParser(description="Merge issues-github.list files")
@@ -76,21 +78,21 @@ def run():
 
 def extract_data_per_project(project_list, dir,type_data):
     """
-    Extracts each file's data from each project and appends to all issues
+    Extracts each file's data from each project and appends to all data
     """
     all_data = {}
     for project in project_list:
         # Matches the actual path for data: threemonth/<project>/proximity/type_data(commits.list, issues-github.list)
-        issues_file = os.path.join(dir, project, "proximity", type_data)
-        if not os.path.exists(issues_file):
-            log.warning(f"File not found: {issues_file}")
+        data_file = os.path.join(dir, project, "proximity", type_data)
+        if not os.path.exists(data_file):
+            log.warning(f"File not found: {data_file}")
             continue
 
-        with open(issues_file, newline="", encoding="utf-8") as f:
+        with open(data_file, newline="", encoding="utf-8") as f:
             reader = csv.reader(f, delimiter=";")
             rows = [row for row in reader]
         all_data[project] = rows
-        log.info(f"Loaded {len(rows)} rows from '{project}'")
+        log.info(f"Loaded {len(rows)} rows from {type_data} of '{project}'")
     return all_data
 
 def extract_user_data(project_list, dir):
@@ -119,7 +121,7 @@ def extract_user_data(project_list, dir):
             log.info(f"Loaded {len(rows)} rows from '{project}'")
     return all_data
 
-      
+
 def merge_data(all_data, file):
     """
     Merging data based on the file data
@@ -152,7 +154,7 @@ def run_gitauthority(script: str, dir: str, project_name: str):
     script_path = Path(os.path.join(script, "gitAuthority.py"))
     input_file = os.path.join(dir, "users.list")
     Path(dir).mkdir(parents=True, exist_ok=True)
-    clean_name = Path(project_name).stem 
+    clean_name = Path(project_name).stem
     cmd = [sys.executable, str(script_path),
            "--file", str(input_file),
            "--name", clean_name,
@@ -195,7 +197,7 @@ def merge_issues(all_issues):
             new_row = row.copy()
             # Updating firts row: 1 -> project1-1
             new_row[0] = f"{short_name}-{new_row[0]}"
-            
+
             # Checking last row is indeed """issue""" then updating the last but one row: 3885 -> project1-3885
             last_col = new_row[13].strip().strip('"')
             # checking if the 8th Column is "connected"
@@ -205,7 +207,7 @@ def merge_issues(all_issues):
 
             if (last_col.lower() == "issue" or connected_col.lower() == "connected" ) and issue_num.isdigit():
                 new_row[12] = f"{short_name}-{issue_num}"
-            
+
             if sub_issues and sub_issues != '[]':
                 inner = sub_issues.strip('[]')
                 sub_issues_list = [s.strip() for s in inner.split(',')]
@@ -497,7 +499,7 @@ def update(output_dir, project_name):
         log.warning(f"authors.list not found in {output_dir}")
 
     log.info("update complete!")
-    
+
 def save_merged(merged_rows, resdir, custom_dir, file):
     """
     Saves the merged file to a new directory alongside the input directory.
