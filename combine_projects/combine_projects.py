@@ -13,6 +13,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 # Copyright 2026 by Ritika Hiremath <rihi00002@stud.uni-saarland.de>
+# Copyright 2026 by Thomas Bock <bockthom@cmu.edu>
 # All Rights Reserved.
 """
 This file merges different commits.list files and issues_github.list files from different projects.
@@ -24,6 +25,7 @@ import csv
 import argparse
 import subprocess
 import sys
+import json
 from pathlib import Path
 from logging import getLogger
 from codeface_utils.util import setup_logging
@@ -139,10 +141,15 @@ def merge_generic(all_data):
     transformation. Used for files that don't need special handling.
     """
     merged = []
+    seen = set()
     for rows in all_data.values():
         for row in rows:
             if not row:
                 continue
+            key = json.dumps(row, sort_keys=True)
+            if key in seen:
+                continue
+            seen.add(key)
             merged.append(row)
     log.info(f"Total merged rows: {len(merged)}")
     return merged
@@ -300,7 +307,7 @@ def update_issues_github(issues_github_rows, identity_map):
             continue
 
         new_row = row.copy()
-        # dealianlized: 0 -> name , 1 -> email
+        # dealialized: 0 -> name , 1 -> email
         dealialized = identity_map.get((row[9].strip().strip('"'), row[10].strip().strip('"')))
         if dealialized:
             new_row[9]  = dealialized[0]
@@ -328,14 +335,14 @@ def update_commits(commits_rows, identity_map):
             continue
 
         new_row = row.copy()
-        # dealianlized: 0 -> name , 1 -> email
+        # dealialized: 0 -> name , 1 -> email
         dealialized = identity_map.get((row[2].strip().strip('"'), row[3].strip().strip('"')))
         if dealialized:
             new_row[2] = dealialized[0]
             new_row[3] = dealialized[1]
             updated_count += 1
 
-        # dealianlized: 0 -> name , 1 -> email
+        # dealialized: 0 -> name , 1 -> email
         dealialized = identity_map.get((row[5].strip().strip('"'), row[6].strip().strip('"')))
         if dealialized:
             new_row[5] = dealialized[0]
@@ -354,6 +361,7 @@ def update_bots(bots_rows, identity_map):
 
     updated_rows  = []
     updated_count = 0
+    seen_rows = set()
 
     for row in bots_rows:
         if not row or len(row) < 2:
@@ -361,13 +369,18 @@ def update_bots(bots_rows, identity_map):
             continue
 
         new_row = row.copy()
-        # dealianlized: 0 -> name , 1 -> email
+        # dealialized: 0 -> name , 1 -> email
         dealialized = identity_map.get((row[0].strip().strip('"'), row[1].strip().strip('"')))
         if dealialized:
             new_row[0] = dealialized[0]
             new_row[1] = dealialized[1]
             updated_count += 1
 
+        key = json.dumps(new_row, sort_keys=True)
+        if key in seen_rows:
+            continue
+
+        seen_rows.add(key)
         updated_rows.append(new_row)
 
     log.info(f"update_bots: {updated_count}/{len(updated_rows)} rows updated")
@@ -390,7 +403,7 @@ def update_authors(authors_rows,identity_map):
             continue
 
         new_row = row.copy()
-        # dealianlized: 0 -> name , 1 -> email
+        # dealialized: 0 -> name , 1 -> email
         dealialized = identity_map.get((row[1].strip().strip('"'), row[2].strip().strip('"')))
         if dealialized:
             dealialized_name, dealialized_email = dealialized
